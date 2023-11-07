@@ -3,6 +3,7 @@
 // *** NETWORK WILL FAIL. IF YOU WANT TO KNOW MORE, JOIN OUR DISCORD TO SPEAK   ***
 // *** WITH THE PHALA TEAM AT https://discord.gg/5HfmWQNX THANK YOU             ***
 import "@phala/pink-env";
+import { vrf } from "@phala/pink-env";
 import { Coders } from "@phala/ethers";
 
 type HexString = `0x${string}`
@@ -93,67 +94,6 @@ function isHexString(str: string): boolean {
   return regex.test(str.toLowerCase());
 }
 
-function stringToHex(str: string): string {
-  var hex = "";
-  for (var i = 0; i < str.length; i++) {
-    hex += str.charCodeAt(i).toString(16);
-  }
-  return "0x" + hex;
-}
-
-function fetchApiStats(apiUrl: string, reqStr: string): any {
-  // reqStr should be any valid hex string
-  let headers = {
-    "Content-Type": "application/json",
-    "User-Agent": "phat-contract",
-  };
-  let query = JSON.stringify({
-    query: `query Profile {
-            profile(request: { profileId: \"${reqStr}\" }) {
-                stats {
-                    totalFollowers
-                    totalFollowing
-                    totalPosts
-                    totalComments
-                    totalMirrors
-                    totalPublications
-                    totalCollects
-                }
-            }
-        }`,
-  });
-  let body = stringToHex(query);
-  //
-  // In Phat Contract runtime, we not support async/await, you need use `pink.batchHttpRequest` to
-  // send http request. The Phat Contract will return an array of response.
-  //
-  let response = pink.batchHttpRequest(
-    [
-      {
-        url: apiUrl,
-        method: "POST",
-        headers,
-        body,
-        returnTextBody: true,
-      },
-    ],
-    10000 // Param for timeout in milliseconds. Your Phat Contract script has a timeout of 10 seconds
-  )[0]; // Notice the [0]. This is important bc the `pink.batchHttpRequest` function expects an array of up to 5 HTTP requests.
-  if (response.statusCode !== 200) {
-    console.log(
-      `Fail to read Lens api with status code: ${response.statusCode}, error: ${
-        response.error || response.body
-      }}`
-    );
-    throw Error.FailedToFetchData;
-  }
-  let respBody = response.body;
-  if (typeof respBody !== "string") {
-    throw Error.FailedToDecode;
-  }
-  return JSON.parse(respBody);
-}
-
 function parseReqStr(hexStr: string): string {
   var hex = hexStr.toString();
   if (!isHexString(hex)) {
@@ -185,7 +125,7 @@ function parseReqStr(hexStr: string): string {
 // the return value.
 //
 export default function main(request: HexString, secrets: string): HexString {
-  console.log(`handle req: ${request}`);
+  console.log(`Handle req: ${request}`);
   // Uncomment to debug the `settings` passed in from the Phat Contract UI configuration.
   // console.log(`secrets: ${settings}`);
   let requestId, encodedReqStr;
@@ -196,13 +136,14 @@ export default function main(request: HexString, secrets: string): HexString {
     return encodeReply([TYPE_ERROR, 0, errorToCode(error as Error)]);
   }
   const parsedHexReqStr = parseReqStr(encodedReqStr as string);
-  console.log(`Request received for profile ${parsedHexReqStr}`);
+  console.log(`Request received for nonce ${parsedHexReqStr}`);
 
   try {
-    const respData = fetchApiStats(secrets, parsedHexReqStr);
-    let stats = respData.data.profile.stats.totalPosts;
-    console.log("response:", [TYPE_RESPONSE, requestId, stats]);
-    return encodeReply([TYPE_RESPONSE, requestId, stats]);
+    const randomBytes = vrf(parsedHexReqStr);
+    const dv = new DataView(randomBytes.buffer, randomBytes.byteOffset, randomBytes.byteLength);
+    let random = dv.getUint32(0);
+    console.log("Response:", [TYPE_RESPONSE, requestId, random]);
+    return encodeReply([TYPE_RESPONSE, requestId, random]);
   } catch (error) {
     if (error === Error.FailedToFetchData) {
       throw error;
