@@ -56,11 +56,12 @@ const bytesArrayCoder = new Coders.ArrayCoder(bytesCoder, 10, "bytes");
 const uintArrayCoder = new Coders.ArrayCoder(uintCoder, 10, "uint256");
 */
 
-const uintCoder = new Coders.NumberCoder(32, false, "uint256");
+const uintCoder = new Coders.NumberCoder(32, false, "uint32");
+const uint64Coder = new Coders.NumberCoder(64, false, "uint64");
 const bytesCoder = new Coders.BytesCoder("bytes");
 
-function encodeReply(reply: [number, number, number]): HexString {
-  return Coders.encode([uintCoder, uintCoder, uintCoder], reply) as HexString;
+function encodeReply(reply: [number, number, bigint]): HexString {
+  return Coders.encode([uintCoder, uintCoder, uint64Coder], reply) as HexString;
 }
 
 // Defined in OracleConsumerContract.sol
@@ -69,7 +70,7 @@ const TYPE_ERROR = 2;
 
 enum Error {
   BadRequestString = "BadRequestString",
-  FailedToFetchData = "FailedToFetchData",
+  BadVrf = "BadVrf",
   FailedToDecode = "FailedToDecode",
   MalformedRequest = "MalformedRequest",
 }
@@ -78,7 +79,7 @@ function errorToCode(error: Error): number {
   switch (error) {
     case Error.BadRequestString:
       return 1;
-    case Error.FailedToFetchData:
+    case Error.BadVrf:
       return 2;
     case Error.FailedToDecode:
       return 3;
@@ -133,24 +134,23 @@ export default function main(request: HexString, secrets: string): HexString {
     [requestId, encodedReqStr] = Coders.decode([uintCoder, bytesCoder], request);
   } catch (error) {
     console.info("Malformed request received");
-    return encodeReply([TYPE_ERROR, 0, errorToCode(error as Error)]);
+    return encodeReply([TYPE_ERROR, 0, BigInt(errorToCode(error as Error))]);
   }
   const parsedHexReqStr = parseReqStr(encodedReqStr as string);
   console.log(`Request received for nonce ${parsedHexReqStr}`);
 
   try {
     const randomBytes = vrf(parsedHexReqStr);
+    if (randomBytes.byteLength != 64) {
+      throw Error.BadVrf;
+    }
     const dv = new DataView(randomBytes.buffer, randomBytes.byteOffset, randomBytes.byteLength);
-    let random = dv.getUint32(0);
+    let random = dv.getBigUint64(0);
     console.log("Response:", [TYPE_RESPONSE, requestId, random]);
     return encodeReply([TYPE_RESPONSE, requestId, random]);
   } catch (error) {
-    if (error === Error.FailedToFetchData) {
-      throw error;
-    } else {
-      // otherwise tell client we cannot process it
-      console.log("error:", [TYPE_ERROR, requestId, error]);
-      return encodeReply([TYPE_ERROR, requestId, errorToCode(error as Error)]);
-    }
+    // tell client we cannot process it
+    console.log("error:", [TYPE_ERROR, requestId, error]);
+    return encodeReply([TYPE_ERROR, requestId, BigInt(errorToCode(error as Error))]);
   }
 }
