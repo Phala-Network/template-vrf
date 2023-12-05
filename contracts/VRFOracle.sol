@@ -3,17 +3,14 @@ pragma solidity ^0.8.9;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "./PhatRollupAnchor.sol";
+import "@chainlink/contracts/src/v0.8/vrf/VRFConsumerBaseV2.sol";
 
-interface HubInterface {
-    function request(string calldata reqData) external;
+interface VRFOracleInterface {
+    function requestRandomWords(string calldata seed, uint32 numWords) external;
 }
 
-interface CallerInterface {
-    function onMessageReceived(uint256 random) external;
-}
-
-contract OracleHub is HubInterface, PhatRollupAnchor, Ownable {
-    event ResponseReceived(uint reqId, string reqData, uint256 value);
+contract VRFOracle is VRFOracleInterface, PhatRollupAnchor, Ownable {
+    event ResponseReceived(uint reqId, string reqData, uint256[] value);
     event ErrorReceived(uint reqId, string reqData, uint256 errno);
 
     uint constant TYPE_RESPONSE = 0;
@@ -25,7 +22,7 @@ contract OracleHub is HubInterface, PhatRollupAnchor, Ownable {
     }
 
     mapping(uint => Request) requests;
-    uint nextRequest = 1;
+    uint256 nextRequest = 1;
 
     constructor(address phatAttestor) {
         _grantRole(PhatRollupAnchor.ATTESTOR_ROLE, phatAttestor);
@@ -35,34 +32,34 @@ contract OracleHub is HubInterface, PhatRollupAnchor, Ownable {
         _grantRole(PhatRollupAnchor.ATTESTOR_ROLE, phatAttestor);
     }
 
-    function request(string calldata reqData) external {
+    function requestRandomWords(string calldata seed, uint32 numWords) external {
         // assemble the request
-        uint id = nextRequest;
+        uint256 id = nextRequest;
         if (isContract(msg.sender)) {
-            requests[id] = Request(msg.sender, reqData);
+            requests[id] = Request(msg.sender, seed);
         } else {
-            requests[id] = Request(address(0), reqData);
+            requests[id] = Request(address(0), seed);
         }
-        _pushMessage(abi.encode(id, reqData));
+        _pushMessage(abi.encode(id, seed, numWords));
         nextRequest += 1;
     }
 
     function _onMessageReceived(bytes calldata action) internal override {
         // Optional to check length of action
         // require(action.length == 32 * 3, "cannot parse action");
-        (uint respType, uint id, uint256 data) = abi.decode(
+        (uint respType, uint256 id, uint256[] memory data) = abi.decode(
             action,
-            (uint, uint, uint256)
+            (uint, uint256, uint256[])
         );
         if (respType == TYPE_RESPONSE) {
             emit ResponseReceived(id, requests[id].data, data);
             if (requests[id].caller != address(0)) {
-                CallerInterface caller = CallerInterface(requests[id].caller);
-                caller.onMessageReceived(data);
+                VRFConsumerBaseV2 consumer = VRFConsumerBaseV2(requests[id].caller);
+                consumer.rawFulfillRandomWords(id, data);
             }
             delete requests[id];
         } else if (respType == TYPE_ERROR) {
-            emit ErrorReceived(id, requests[id].data, data);
+            emit ErrorReceived(id, requests[id].data, data[0]);
             delete requests[id];
         }
     }

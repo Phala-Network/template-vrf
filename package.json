@@ -52,6 +52,7 @@
   },
   "dependencies": {
     "@openzeppelin/contracts": "4.9.3",
+    "@chainlink/contracts": "0.8",
     "@phala/ethers": "^6.6.3",
     "@phala/fn": "^0.2.4",
     "@phala/pink-env": "^1.0.1",
