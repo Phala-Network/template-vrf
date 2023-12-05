@@ -4,69 +4,25 @@
 // *** WITH THE PHALA TEAM AT https://discord.gg/5HfmWQNX THANK YOU             ***
 import "@phala/pink-env";
 import { vrf } from "@phala/pink-env";
-import { Coders } from "@phala/ethers";
+import { encodeAbiParameters, decodeAbiParameters, parseAbiParameters } from "viem";
 
-type HexString = `0x${string}`
+type HexString = `0x${string}`;
 
-// ETH ABI Coders available
-/*
-// Basic Types
-// Encode uint
-const uintCoder = new Coders.NumberCoder(32, false, "uint256");
-// Encode Bytes
-const bytesCoder = new Coders.BytesCoder("bytes");
-// Encode String
-const stringCoder = new Coders.StringCoder("string");
-// Encode Address
-const addressCoder = new Coders.AddressCoder("address");
+// Defined in ../contracts/VRFOracle.sol
+const requestAbiParams = 'uint256 id, string seed, uint32 numWords';
+const replyAbiParams = 'uint respType, uint256 id, uint256[] data';
 
-// ARRAYS
-//
-// ***NOTE***
-// IF YOU DEFINE AN TYPED ARRAY FOR ENCODING, YOU MUST ALSO DEFINE THE SIZE WHEN DECODING THE ACTION REPLY IN YOUR
-// SOLIDITY SMART CONTRACT.
-// EXAMPLE for an array of string with a length of 10
-//
-// index.ts
-const stringCoder = new Coders.StringCoder("string");
-const stringArrayCoder = new Coders.ArrayCoder(stringCoder, 10, "string[]");
-function encodeReply(reply: [number, number, string[]]): HexString {
-  return Coders.encode([uintCoder, uintCoder, stringArrayCoder], reply) as HexString;
+function decodeRequest(request: HexString): readonly [bigint, string, number] {
+  return decodeAbiParameters(parseAbiParameters(requestAbiParams), request);
 }
 
-const stringArray = string[10];
-
-export default function main(request: HexString, secrets: string): HexString {
-  return encodeReply([0, 1, stringArray]);
-}
-// OracleConsumerContract.sol
-function _onMessageReceived(bytes calldata action) internal override {
-    (uint respType, uint id, string[10] memory data) = abi.decode(
-        action,
-        (uint, uint, string[10])
-    );
-}
-// Encode Array of addresses with a length of 10
-const stringArrayCoder = new Coders.ArrayCoder(stringCoder, 10, "string");
-// Encode Array of addresses with a length of 10
-const addressArrayCoder = new Coders.ArrayCoder(addressCoder, 10, "address");
-// Encode Array of bytes with a length of 10
-const bytesArrayCoder = new Coders.ArrayCoder(bytesCoder, 10, "bytes");
-// Encode Array of uint with a length of 10
-const uintArrayCoder = new Coders.ArrayCoder(uintCoder, 10, "uint256");
-*/
-
-const uintCoder = new Coders.NumberCoder(32, false, "uint32");
-const uint64Coder = new Coders.NumberCoder(64, false, "uint64");
-const bytesCoder = new Coders.BytesCoder("bytes");
-
-function encodeReply(reply: [number, number, bigint]): HexString {
-  return Coders.encode([uintCoder, uintCoder, uint64Coder], reply) as HexString;
+function encodeReply(reply: [bigint, bigint, bigint[]]): HexString {
+  return encodeAbiParameters(parseAbiParameters(replyAbiParams), reply);
 }
 
-// Defined in OracleConsumerContract.sol
-const TYPE_RESPONSE = 0;
-const TYPE_ERROR = 2;
+// Defined in ../contracts/VRFOracle.sol
+const TYPE_RESPONSE = 0n;
+const TYPE_ERROR = 2n;
 
 enum Error {
   BadRequestString = "BadRequestString",
@@ -90,25 +46,18 @@ function errorToCode(error: Error): number {
   }
 }
 
-function isHexString(str: string): boolean {
-  const regex = /^0x[0-9a-f]+$/;
-  return regex.test(str.toLowerCase());
-}
-
-function parseReqStr(hexStr: string): string {
-  var hex = hexStr.toString();
-  if (!isHexString(hex)) {
-    throw Error.BadRequestString;
+function getRandomWords(nonce: string, numWords: number): bigint[] {
+  let randomWords = [];
+  for (let i = 0; i < numWords; i++) {
+    const randomBytes = vrf(nonce + i);
+    if (randomBytes.byteLength != 64) {
+      throw Error.BadVrf;
+    }
+    const dv = new DataView(randomBytes.buffer, randomBytes.byteOffset, randomBytes.byteLength);
+    randomWords.push(dv.getBigUint64(0));
   }
-  hex = hex.slice(2);
-  var str = "";
-  for (var i = 0; i < hex.length; i += 2) {
-    const ch = String.fromCharCode(parseInt(hex.substring(i, i + 2), 16));
-    str += ch;
-  }
-  return str;
+  return randomWords;
 }
-
 
 //
 // Here is what you need to implemented for Phat Contract, you can customize your logic with
@@ -129,28 +78,22 @@ export default function main(request: HexString, secrets: string): HexString {
   console.log(`Handle req: ${request}`);
   // Uncomment to debug the `settings` passed in from the Phat Contract UI configuration.
   // console.log(`secrets: ${settings}`);
-  let requestId, encodedReqStr;
+  let requestId, nonce, numWords;
   try {
-    [requestId, encodedReqStr] = Coders.decode([uintCoder, bytesCoder], request);
+    [requestId, nonce, numWords] = decodeRequest(request);
   } catch (error) {
     console.info("Malformed request received");
-    return encodeReply([TYPE_ERROR, 0, BigInt(errorToCode(error as Error))]);
+    return encodeReply([TYPE_ERROR, 0n, [BigInt(errorToCode(error as Error))]]);
   }
-  const parsedHexReqStr = parseReqStr(encodedReqStr as string);
-  console.log(`Request received for nonce ${parsedHexReqStr}`);
+  console.log(`Request received for nonce "${nonce}", length ${numWords}`);
 
   try {
-    const randomBytes = vrf(parsedHexReqStr);
-    if (randomBytes.byteLength != 64) {
-      throw Error.BadVrf;
-    }
-    const dv = new DataView(randomBytes.buffer, randomBytes.byteOffset, randomBytes.byteLength);
-    let random = dv.getBigUint64(0);
-    console.log("Response:", [TYPE_RESPONSE, requestId, random]);
-    return encodeReply([TYPE_RESPONSE, requestId, random]);
+    let randomWords = getRandomWords(nonce, numWords);
+    console.log("Response:", [TYPE_RESPONSE, requestId, randomWords]);
+    return encodeReply([TYPE_RESPONSE, requestId, randomWords]);
   } catch (error) {
     // tell client we cannot process it
     console.log("error:", [TYPE_ERROR, requestId, error]);
-    return encodeReply([TYPE_ERROR, requestId, BigInt(errorToCode(error as Error))]);
+    return encodeReply([TYPE_ERROR, requestId, [BigInt(errorToCode(error as Error))]]);
   }
 }
