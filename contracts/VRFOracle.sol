@@ -2,7 +2,7 @@
 pragma solidity ^0.8.9;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "./PhatRollupAnchor.sol";
+import "@phala/solidity/contracts/PhatRollupAnchor.sol";
 import "@chainlink/contracts/src/v0.8/vrf/VRFConsumerBaseV2.sol";
 
 interface VRFOracleInterface {
