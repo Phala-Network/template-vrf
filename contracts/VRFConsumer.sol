@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.9;
 
-import "./VRFOracle.sol";
+import "@phala/solidity/contracts/VRFOracle.sol";
 import "@chainlink/contracts/src/v0.8/vrf/VRFConsumerBaseV2.sol";
 
 abstract contract VRFConsumer is VRFConsumerBaseV2 {
