@@ -2,7 +2,7 @@ import { ethers } from "hardhat";
 import "dotenv/config";
 
 async function main() {
-  const OracleConsumerContract = await ethers.getContractFactory("OracleConsumerContract");
+  const OracleConsumerContract = await ethers.getContractFactory("VRFConsumer");
 
   const [deployer] = await ethers.getSigners();
 
@@ -13,7 +13,7 @@ async function main() {
   ])
 
   console.log('Pushing a request...');
-  await consumer.connect(deployer).request("0x01");
+  await consumer.connect(deployer).request("test", 1);
   console.log('Done');
 }
 

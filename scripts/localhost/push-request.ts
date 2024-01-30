@@ -8,12 +8,13 @@ async function main() {
   const [deployer] = await ethers.getSigners();
 
   const consumerSC = process.env["LOCALHOST_CONSUMER_CONTRACT_ADDRESS"] || "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512";
-  if (!consumerSC) {
-    console.error("Error: Please provide LOCALHOST_CONSUMER_CONTRACT_ADDRESS");
+  const oracleSC = process.env["LOCALHOST_VRF_ORACLE_CONTRACT_ADDRESS"] || "0x5FbDB2315678afecb367f032d93F642f64180aa3";
+  if (!consumerSC || !oracleSC) {
+    console.error("Error: Please provide LOCALHOST_CONSUMER_CONTRACT_ADDRESS and LOCALHOST_VRF_ORACLE_CONTRACT_ADDRESS");
     process.exit(1);
   }
   const consumer = VrfConsumer.attach(consumerSC);
-  const oracle = VrfOracle.attach("0x5FbDB2315678afecb367f032d93F642f64180aa3")
+  const oracle = VrfOracle.attach(oracleSC);
   console.log("Pushing a request...");
   await consumer.connect(deployer).request("test", 1);
   oracle.on("ResponseReceived", async (reqId: number, pair: string, value: string) => {
