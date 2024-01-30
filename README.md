@@ -54,68 +54,27 @@ yarn build-function
 ```
 To simulate the expected result locally, run the Phala Oracle function now with this command:
 ```bash
-yarn run-function -a 0x00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000047465737400000000000000000000000000000000000000000000000000000000
+yarn run-function -a 0x00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000047465737400000000000000000000000000000000000000000000000000000000
 ```
 >
-> **What are the ingredients for the `yarn run-function` command?**
+> **What are the ingredients for the `npx @phala/fn run` command?**
 >
 > Our Phat Contract script, now fully constructed, is ready for a trial run. This simulation mirrors the live script's operation when deployed on the Phala Network.
 >
-> The command's first parameter is a HexString, representing a tuple of types `[uintCoder, bytesCoder]`. This serves as the entry function. The second parameter is a `string`, embodying the configurable secrets fed into the main function.
+> The command's first parameter is a HexString `request`. This serves as the entry function. The second parameter is a `string`, embodying the configurable secrets fed into the main function.
 >
-> The `Coders.decode` function deciphers these parameters, yielding the decoded `requestId` and `encodedReqStr`. These decoded elements then become the raw material for the rest of the custom logic within the script.
-> ```typescript
+> The `decodeRequest` function deciphers these parameters, yielding the decoded `requestId` `nonce` and `numWords`. These decoded elements then become the raw material for the rest of the custom logic within the script.
+> ```typescript 
 > export default function main(request: HexString, secrets: string): HexString {
 >   console.log(`handle req: ${request}`);
->   let requestId, encodedReqStr;
+>   let requestId, nonce, numWords;
 >   try {
->     [requestId, encodedReqStr] = Coders.decode([uintCoder, bytesCoder], request);
+>     [requestId, nonce, numWords] = decodeRequest(request);
 >   } catch (error) {
 >     console.info("Malformed request received");
 >   }
 > // ...
-> }
-
-<details>
-  <summary><u>How the query looks under the hood</u></summary>
-
-- HTTP Endpoint: https://api-mumbai.lens.dev
-- Profile ID: `0x01`
-- Expected Graphql Query:
-  ```graphql
-  query Profile {
-    profile(request: { profileId: "0x01" }) {
-      stats {
-          totalFollowers
-          totalFollowing
-          totalPosts
-          totalComments
-          totalMirrors
-          totalPublications
-          totalCollects
-      }
-    }
-  }
-  ```
-- Expected Output:
-  ```json
-  {
-    "data": {
-      "profile": {
-        "stats": {
-          "totalFollowers": 3361,
-          "totalFollowing": 0,
-          "totalPosts": 3,
-          "totalComments": 0,
-          "totalMirrors": 0,
-          "totalPublications": 3,
-          "totalCollects": 1597
-        }
-      }
-    }
-  }
-  ```
-</details>
+> } 
 
 Finally, run the local end-to-end tests with this command. Here we will simulate locally the interaction between the Phat Contract and the Consumer Contract with hardhat.
 ```bash
