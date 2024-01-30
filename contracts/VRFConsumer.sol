@@ -4,7 +4,7 @@ pragma solidity ^0.8.9;
 import "@phala/solidity/contracts/VRFOracle.sol";
 import "@chainlink/contracts/src/v0.8/vrf/VRFConsumerBaseV2.sol";
 
-abstract contract VRFConsumer is VRFConsumerBaseV2 {
+contract VRFConsumer is VRFConsumerBaseV2 {
     event RandomReceived(uint256 requestId, uint256[] random);
 
     address _oracle;
