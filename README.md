@@ -9,12 +9,11 @@ The Phat Contract Starter Kit is your one-stop solution to connect any API to yo
 
 This starter kit empowers you to initiate the data request from the smart contract side. The request is then seamlessly sent to your script for processing. You have the liberty to call any APIs to fulfill the request and define the response data structure that will be replied to your smart contract.
 ## :runner: Quick Start
-To kickstart your journey with the Phat Contract Starter Kit, you have 2 options:
-1. Create a template from the [`phat-contract-starter-kit`](https://bit.ly/3PVlgHs) template repo. Click on the "**Use this template**" button in the top right corner of the webpage. Then skip the `npx @phala/fn@latest init example` step.
-  ![](./assets/UseThisTemplate.png)
-2. Install the `@phala/fn` CLI tool. You can do this using your node package manager (`npm`) or use node package execute (`npx`). For the purpose of this tutorial, we will be using `npx`.
+To kickstart your journey with the Phat Contract Starter Kit, you will use the `@phala/fn` CLI tool.
 
-(Option 2) Once you have the CLI tool installed, you can create your first Phala Oracle template with the following command.
+Install the `@phala/fn` CLI tool. You can do this using your node package manager (`npm`) or use node package execute (`npx`). For the purpose of this tutorial, we will be using `npx`.
+
+Once you have the CLI tool installed, you can create your first Phala Oracle template with the following command.
 ```bash
 # Skip this step if chose option 1 or cloned this repo
 npx @phala/fn@latest init example
@@ -22,13 +21,16 @@ npx @phala/fn@latest init example
 
 <center>:rotating_light: <u><b>Note</b></u> :rotating_light:</center>
 
-> When selecting your template, elect `phat-contract-starter-kit`.
+> When selecting your template, elect `vrf-oracle`.
 
 ```shell
 npx @phala/fn@latest init example
-? Please select one of the templates for your "example" project: (Use arrow keys)
-❯ phat-contract-starter-kit. The Phat Contract Starter Kit
-  lensapi-oracle-consumer-contract. Polygon Consumer Contract for LensAPI Oracle
+? Please select one of the templates for your "example" project: 
+  phat-contract-starter-kit: Send data from any API to your smart contract with Javascript. 
+  lensapi-oracle-consumer-contract: Send data from Lens API to your smart contract to empower your Web3 Social dApp. 
+❯ vrf-oracle: TEE-guarded Verifiable Random Function template to bring randomness to your smart contract. 
+  airstack-phat-contract: Request an account’s data from Airstack’s API to compute trust score and send to your Web3 dApp on-chain. 
+  thegraph-phat-contract: Connect your subgraphs from The Graph to your on-chain dApps via Phat Contract.  
 ```
 
 :stop_sign: **Not so fast!** What is it exactly that we are building? :stop_sign:
@@ -52,68 +54,27 @@ yarn build-function
 ```
 To simulate the expected result locally, run the Phala Oracle function now with this command:
 ```bash
-yarn run-function -a 0x00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000047465737400000000000000000000000000000000000000000000000000000000
+yarn run-function -a 0x00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000047465737400000000000000000000000000000000000000000000000000000000
 ```
 >
-> **What are the ingredients for the `yarn run-function` command?**
+> **What are the ingredients for the `npx @phala/fn run` command?**
 >
 > Our Phat Contract script, now fully constructed, is ready for a trial run. This simulation mirrors the live script's operation when deployed on the Phala Network.
 >
-> The command's first parameter is a HexString, representing a tuple of types `[uintCoder, bytesCoder]`. This serves as the entry function. The second parameter is a `string`, embodying the configurable secrets fed into the main function.
+> The command's first parameter is a HexString `request`. This serves as the entry function. The second parameter is a `string`, embodying the configurable secrets fed into the main function.
 >
-> The `Coders.decode` function deciphers these parameters, yielding the decoded `requestId` and `encodedReqStr`. These decoded elements then become the raw material for the rest of the custom logic within the script.
-> ```typescript
+> The `decodeRequest` function deciphers these parameters, yielding the decoded `requestId` `nonce` and `numWords`. These decoded elements then become the raw material for the rest of the custom logic within the script.
+> ```typescript 
 > export default function main(request: HexString, secrets: string): HexString {
 >   console.log(`handle req: ${request}`);
->   let requestId, encodedReqStr;
+>   let requestId, nonce, numWords;
 >   try {
->     [requestId, encodedReqStr] = Coders.decode([uintCoder, bytesCoder], request);
+>     [requestId, nonce, numWords] = decodeRequest(request);
 >   } catch (error) {
 >     console.info("Malformed request received");
 >   }
 > // ...
-> }
-
-<details>
-  <summary><u>How the query looks under the hood</u></summary>
-
-- HTTP Endpoint: https://api-mumbai.lens.dev
-- Profile ID: `0x01`
-- Expected Graphql Query:
-  ```graphql
-  query Profile {
-    profile(request: { profileId: "0x01" }) {
-      stats {
-          totalFollowers
-          totalFollowing
-          totalPosts
-          totalComments
-          totalMirrors
-          totalPublications
-          totalCollects
-      }
-    }
-  }
-  ```
-- Expected Output:
-  ```json
-  {
-    "data": {
-      "profile": {
-        "stats": {
-          "totalFollowers": 3361,
-          "totalFollowing": 0,
-          "totalPosts": 3,
-          "totalComments": 0,
-          "totalMirrors": 0,
-          "totalPublications": 3,
-          "totalCollects": 1597
-        }
-      }
-    }
-  }
-  ```
-</details>
+> } 
 
 Finally, run the local end-to-end tests with this command. Here we will simulate locally the interaction between the Phat Contract and the Consumer Contract with hardhat.
 ```bash
@@ -123,7 +84,7 @@ yarn hardhat test
 
 You have successfully completed the quick start. For the next steps, you will learn how to deploy your Phala Oracle and connect to the consumer contract for the EVM testnet chain to start testing the request-response model live.
 
-For a deeper dive into the details, click [here](./GETTING_STARTED.md),  or continue reading to learn about the valuable features the Phala Oracle can offer to your on-chain consumer contract.
+For a deeper dive into the details, click [here](https://bit.ly/connect-pc-2-0-to-evm-sc),  or continue reading to learn about the valuable features the Phala Oracle can offer to your on-chain consumer contract.
 
 ---
 ## :magic_wand: Features and Benefits

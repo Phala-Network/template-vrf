@@ -1,20 +1,20 @@
 import { ethers } from "hardhat";
 import "dotenv/config";
 async function main() {
-  const OracleConsumerContract = await ethers.getContractFactory("OracleConsumerContract");
+  const VrfOracleContract = await ethers.getContractFactory("VRFOracle");
 
   const [deployer] = await ethers.getSigners();
 
-  const consumerSC = process.env['MUMBAI_CONSUMER_CONTRACT_ADDRESS'] || "";
-  const consumer = OracleConsumerContract.attach(consumerSC);
+  const vrfOracle = process.env['MUMBAI_VRF_ORACLE_CONTRACT_ADDRESS'] || "";
+  const oracle = VrfOracleContract.attach(vrfOracle);
   await Promise.all([
-    consumer.deployed(),
+    oracle.deployed(),
   ])
 
   console.log('Setting attestor...');
   const attestor = process.env['MUMBAI_PHALA_ORACLE_ATTESTOR'] || deployer.address;
-  await consumer.connect(deployer).setAttestor(attestor); // change this to the identity of your ActionOffchainRollup found in your Phala Oracle deployment labeled 'Oracle Endpoint'
-  console.log(`🚨NOTE🚨\nMake sure to set the Consumer Contract Address in your Phat Contract 2.0 UI dashboard (https://bricks-poc5.phala.network)\n- Go to 'Configure Client' section where a text box reads 'Add Consumer Smart Contract'\n- Set value to ${consumerSC}`)
+  await oracle.connect(deployer).setAttestor(attestor); // change this to the identity of your ActionOffchainRollup found in your Phala Oracle deployment labeled 'Oracle Endpoint'
+  console.log(`🚨NOTE🚨\nMake sure to set the Consumer Contract Address in your Phat Dashboard (https://dashboard.phala.network)\n- Go to 'Configure Client' section where a text box reads 'Add Consumer Smart Contract'\n- Set value to ${vrfOracle}`)
   console.log('Done');
 }
 
